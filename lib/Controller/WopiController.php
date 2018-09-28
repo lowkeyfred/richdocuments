@@ -57,9 +57,6 @@ class WopiController extends Controller {
 	/** @var IUserSession */
 	private $userSession;
 
-	// Signifies LOOL that document has been changed externally in this storage
-	const LOOL_STATUS_DOC_CHANGED = 1010;
-
 	/**
 	 * @param string $appName
 	 * @param string $UserId
@@ -133,17 +130,26 @@ class WopiController extends Controller {
 			'Size' => $file->getSize(),
 			'Version' => $version,
 			'UserId' => !is_null($wopi->getEditorUid()) ? $wopi->getEditorUid() : 'guest',
+			'SHA256' => base64_encode($file->hash('sha256', true)),
 			'OwnerId' => $wopi->getOwnerUid(),
 			'UserFriendlyName' => !is_null($wopi->getEditorUid()) ? \OC_User::getDisplayName($wopi->getEditorUid()) : $wopi->getGuestDisplayname(),
 			'UserExtraInfo' => [
 			],
 			'UserCanWrite' => $wopi->getCanwrite(),
+			'SupportsCoauth' => true,
+			'SupportsLocks' => true,
+			'SupportsUpdate' => true,
+			'SupportsFileCreation' => true,
+			'WebEditingDisabled' => false,
+			'ClosePostMessage' => true,
+			'CloseUrl' => $wopi->getServerHost(),
 			'UserCanNotWriteRelative' => \OC::$server->getEncryptionManager()->isEnabled() ? true : is_null($wopi->getEditorUid()),
 			'PostMessageOrigin' => $wopi->getServerHost(),
-			'LastModifiedTime' => Helper::toISO8601($file->getMTime()),
-			'EnableInsertRemoteImage' => true,
-			'EnableShare' => true,
+			// 'LastModifiedTime' => Helper::toISO8601($file->getMTime()),
+			// 'EnableInsertRemoteImage' => true,
+			// 'EnableShare' => true,
 		];
+
 
 		$serverVersion = $this->config->getSystemValue('version');
 		if (version_compare($serverVersion, '13', '>=')) {
@@ -152,7 +158,6 @@ class WopiController extends Controller {
 				$response['UserExtraInfo']['avatar'] = $this->urlGenerator->linkToRouteAbsolute('core.avatar.getAvatar', ['userId' => $wopi->getEditorUid(), 'size' => 32]);
 			}
 		}
-
 		return new JSONResponse($response);
 	}
 
@@ -237,53 +242,117 @@ class WopiController extends Controller {
 			/** @var File $file */
 			$userFolder = $this->rootFolder->getUserFolder($editor);
 			$file = $userFolder->getById($fileId)[0];
+			//Create a lock file
+			$lockFilePath = '.' . $file->getName() . '.lock';
+			if (!$file->getParent()->nodeExists($lockFilePath)) {
+				$lockFile = $file->getParent()->newFile($lockFilePath);
+				$this->logger->debug('Lock file {lf} created', ['lf' => $lockFilePath]);
+			} else {
+				$lockFile = $file->getParent()->get($lockFilePath);
+				$this->logger->debug('Lock file {lf} exists', ['lf' => $lockFilePath]);
+			}
+
+			$this->logger->debug("Lock action is: {err}", ['err' => $this->request->getHeader('X-WOPI-Override')]);
+			$this->logger->debug("Lock status is: {err}", ['err' => $this->request->getHeader('X-WOPI-Lock')]);
+			$this->logger->debug("OldLock status is: {err}", ['err' => $this->request->getHeader('X-WOPI-OldLock')]);
+
+			//Lock file if requested
+			if ($this->request->getHeader('X-WOPI-Override') === 'LOCK') {
+				try {
+					$cLf = $lockFile->getContent();
+					$lockID = $this->request->getHeader('X-WOPI-Lock');
+					// $oldLockID = $this->request->getHeader('X-WOPI-OldLock');
+					if (strlen($cLf) === 0) {
+						$lockFile->putContent($lockID);
+						return new JSONResponse([], Http::STATUS_OK);
+					} else if (Helper::compareLocks($cLf, $lockID)) {
+						return new JSONResponse([], Http::STATUS_OK);
+					} else {
+						$this->logger->debug("Lock exception: Already lock by {err}", ['err' => $cLf]);
+						$response = new JSONResponse([], Http::STATUS_CONFLICT);
+						$response->addHeader('X-WOPI-Lock', $cLf);
+						return $response;
+					}
+				} catch (\Exception $e) {
+					$response = new JSONResponse([], Http::STATUS_CONFLICT);
+					$response->addHeader('X-WOPI-LockFailureReason', $e);
+					$response->addHeader('X-WOPI-Lock', $cLf);
+					$this->logger->debug("Lock exception: {err}", ['err' => $e]);
+					return $response;
+				}
+			}
+			if ($this->request->getHeader('X-WOPI-Override') === 'REFRESH_LOCK') {
+				try {
+					$cLf= $lockFile->getContent();
+					$lockID = $this->request->getHeader('X-WOPI-Lock');
+					if (Helper::compareLocks($cLf, $lockID)) {
+						return new JSONResponse([], Http::STATUS_OK);
+					} else {
+						$response = new JSONResponse([], Http::STATUS_CONFLICT);
+						$response->addHeader('X-WOPI-Lock', $cLf);
+						return $response;
+					}
+				} catch (\Exception $e) {
+					$response = new JSONResponse([], Http::STATUS_CONFLICT);
+					$response->addHeader('X-WOPI-LockFailureReason', $e);
+					$response->addHeader('X-WOPI-Lock', $cLf);
+					$this->logger->debug("Lock exception: {err}", ['err' => $e]);
+					return $response;
+				}
+			}
+			//Unlock file
+			if ($this->request->getHeader('X-WOPI-Override') === 'UNLOCK') {
+				try {
+					if (!$file->getParent()->nodeExists($lockFilePath)) {
+						return new JSONResponse([], Http::STATUS_OK);
+					}
+					$cLf = $lockFile->getContent();
+					$lockID = $this->request->getHeader('X-WOPI-Lock');
+					
+					if (Helper::compareLocks($cLf, $lockID)) {
+						$lockFile->putContent('');
+						return new JSONResponse([], Http::STATUS_OK);
+					} else {
+						$this->logger->debug("Unlock exception: unlock Failed, {err1} mismatch {err2}", ['err1' => $cLf, 'err2'=> $lockID]);
+						$response = new JSONResponse([], Http::STATUS_CONFLICT);
+						$response->addHeader('X-WOPI-Lock', $cLf);
+						return $response;
+					}
+				} catch (\Exception $e) {
+					$response = new JSONResponse([], Http::STATUS_CONFLICT);
+					$response->addHeader('X-WOPI-LockFailureReason', $e);
+					$response->addHeader('X-WOPI-Lock', $cLf);
+					$this->logger->debug("Unlock exception: {err}", ['err' => $e]);
+					return $response;
+				}
+			}
 
 			if ($isPutRelative) {
 				// the new file needs to be installed in the current user dir
 				$userFolder = $this->rootFolder->getUserFolder($wopi->getEditorUid());
 				$file = $userFolder->getById($fileId)[0];
 
-				$suggested = $this->request->getHeader('X-WOPI-SuggestedTarget');
-				$suggested = iconv('utf-7', 'utf-8', $suggested);
+				$target = $this->request->getHeader('X-WOPI-RelativeTarget');
+				$target = iconv('utf-7', 'utf-8', $target);
+				$this->logger->debug("RelativeTarget is: {err}", ['err' => $target]);
 
-				if ($suggested[0] === '.') {
-					$path = dirname($file->getPath()) . '/New File' . $suggested;
-				}
-				else if ($suggested[0] !== '/') {
-					$path = dirname($file->getPath()) . '/' . $suggested;
-				}
-				else {
-					$path = $userFolder->getPath() . $suggested;
-				}
-
-				if ($path === '') {
-					return new JSONResponse([
-						'status' => 'error',
-						'message' => 'Cannot create the file'
-					]);
+				if (!$target) {
+					$target = $this->request->getHeader('X-WOPI-SuggestedTarget');
+					$target = iconv('utf-7', 'utf-8', $target);
+				} else {
+					if ($this->request->getHeader('X-WOPI-SuggestedTarget')) {
+						return new JSONResponse([], Http::STATUS_BAD_REQUEST);
+					}
 				}
 
-				$root = \OC::$server->getRootFolder();
-
-				// create the folder first
-				if (!$root->nodeExists(dirname($path))) {
-					$root->newFolder(dirname($path));
-				}
-
-				// create a unique new file
-				$path = $root->getNonExistingName($path);
-				$root->newFile($path);
-				$file = $root->get($path);
-			}
-			else {
-				$wopiHeaderTime = $this->request->getHeader('X-LOOL-WOPI-Timestamp');
-				if (!is_null($wopiHeaderTime) && $wopiHeaderTime != Helper::toISO8601($file->getMTime())) {
-					$this->logger->debug('Document timestamp mismatch ! WOPI client says mtime {headerTime} but storage says {storageTime}', [
-						'headerTime' => $wopiHeaderTime,
-						'storageTime' => Helper::toISO8601($file->getMTime())
-					]);
-					// Tell WOPI client about this conflict.
-					return new JSONResponse(['LOOLStatusCode' => self::LOOL_STATUS_DOC_CHANGED], Http::STATUS_CONFLICT);
+				try {
+					if($this->request->getHeader('X-WOPI-OverwriteRelativeTarget')) {
+						$file = $file->getParent()->get($target);
+					} else {
+						$file = $file->getParent()->newFile($target);
+					}
+				} catch (\Exception $e) {
+					return new JSONResponse([], Http::STATUS_BAD_REQUEST);
 				}
 			}
 
@@ -295,21 +364,30 @@ class WopiController extends Controller {
 				$this->userSession->setUser($editor);
 			}
 
-			$file->putContent($content);
-
-			if ($isPutRelative) {
+			// $this->logger->debug('{content}', ['content' => $content]);
+			if ($this->request->getHeader('X-WOPI-Override') === 'PUT') {
+				$file->putContent($content);
+				return new JSONResponse([], Http::STATUS_OK);
+			} elseif ($isPutRelative) {
 				// generate a token for the new file (the user still has to be
 				// logged in)
+				$this->logger->debug("File is: {err}", ['err' => $file]);
+
+				$file->putContent($content);
 				list(, $wopiToken) = $this->tokenManager->getToken($file->getId(), null, $wopi->getEditorUid());
 
 				$wopi = 'index.php/apps/richdocuments/wopi/files/' . $file->getId() . '_' . $this->config->getSystemValue('instanceid') . '?access_token=' . $wopiToken;
 				$url = $this->urlGenerator->getAbsoluteURL($wopi);
 
 				return new JSONResponse([ 'Name' => $file->getName(), 'Url' => $url ], Http::STATUS_OK);
+			} else {
+				$this->logger->debug("Unlock exception: Unknown action");
+
+				return new JSONResponse([], Http::STATUS_NOT_IMPLEMENTED);
 			}
 
-			return new JSONResponse(['LastModifiedTime' => Helper::toISO8601($file->getMTime())]);
 		} catch (\Exception $e) {
+			$this->logger->debug("UnExpected exception: {err}", ['err' => $e]);
 			return new JSONResponse([], Http::STATUS_INTERNAL_SERVER_ERROR);
 		}
 	}

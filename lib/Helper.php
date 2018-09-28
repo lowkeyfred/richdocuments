@@ -69,4 +69,30 @@ class Helper {
 
 		return $filename;
 	}
+
+	/**
+	 * WOPI helper function to compare 2 locks.
+	 * Officially, this should compare to lock string, 
+	 * but due to Word online bug, we may compare json['S']
+	 */
+
+	 public static function compareLocks(String $lock1, String $lock2) {
+		if ($lock1 === $lock2) return true;
+		$lck1 = json_decode($lock1);
+		if (is_null($lck1)) {
+			$lck1 = json_decode(json_encode(array("S" => $lock1)));
+		}
+		if (!isset($lck1->{'S'})) return false;
+		try {
+			$lck2 = json_decode($lock2);
+			if (is_null($lck2))  {
+				$lck2 = json_decode(json_encode(array("S" => $lock2)));
+			} 
+			return $lck1->{'S'} === $lck2->{'S'}; //used by Word
+
+		} catch (\Exception $e) {
+			return false; //whatever
+		}
+
+	 }
 }

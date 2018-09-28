@@ -422,12 +422,13 @@ var documentsMain = {
 			//	 https://<loolwsd-server>:9980/hosting/discovery
 			var urlsrc = documentsMain.urlsrc +
 				"WOPISrc=" + wopisrc +
-				"&title=" + encodeURIComponent(title) +
-				"&lang=" + OC.getLocale().replace('_', '-') + // loleaflet expects a BCP47 language tag syntax
-				"&closebutton=1" +
-				"&revisionhistory=1";
+				// "&title=" + encodeURIComponent(title) +
+				"&ui=" + OC.getLocale().replace('_', '-') + // loleaflet expects a BCP47 language tag syntax
+				"&rs=zh-CN";
+				// "&revisionhistory=1";
 			if (!documentsMain.canEdit || action === "view") {
-				urlsrc += "&permission=readonly";
+				// urlsrc += "&permission=readonly";
+				urlsrc += "&edit=0";
 			}
 
 			// access_token - must be passed via a form post

@@ -51,7 +51,7 @@ class Section implements IIconSection {
 	 * {@inheritdoc}
 	 */
 	public function getName() {
-		return $this->l->t('Collabora Online');
+		return $this->l->t('Office Online');
 	}
 	/**
 	 * {@inheritdoc}

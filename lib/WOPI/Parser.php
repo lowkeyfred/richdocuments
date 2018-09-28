@@ -41,12 +41,57 @@ class Parser {
 		$discovery = $this->discoveryManager->get();
 		$loadEntities = libxml_disable_entity_loader(true);
 		$discoveryParsed = simplexml_load_string($discovery);
+		$oApp = '';
 		libxml_disable_entity_loader($loadEntities);
+		
 
-		$result = $discoveryParsed->xpath(sprintf('/wopi-discovery/net-zone/app[@name=\'%s\']/action', $mimetype));
+		// $result = $discoveryParsed->xpath(sprintf('/wopi-discovery/net-zone/app[@name=\'%s\']/action', $mimetype));
+		switch ($mimetype) {
+			case 'application/msword' :
+			case 'application/msword' :
+			case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+			case 'application/vnd.openxmlformats-officedocument.wordprocessingml.template' :
+			case 'application/vnd.ms-word.document.macroEnabled.12' :
+			case 'application/vnd.ms-word.template.macroEnabled.12' :
+				$oApp = 'Word';
+				break;
+			
+			case 'application/vnd.ms-excel' :
+			case 'application/vnd.ms-excel' :
+			case 'application/vnd.ms-excel' :
+			case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
+			case 'application/vnd.openxmlformats-officedocument.spreadsheetml.template' :
+			case 'application/vnd.ms-excel.sheet.macroEnabled.12' :
+			case 'application/vnd.ms-excel.template.macroEnabled.12' :
+			case 'application/vnd.ms-excel.addin.macroEnabled.12' :
+			case 'application/vnd.ms-excel.sheet.binary.macroEnabled.12' :
+				$oApp = 'Excel';
+				break;
+		
+			case 'application/vnd.ms-powerpoint' :
+			case 'application/vnd.ms-powerpoint' :
+			case 'application/vnd.ms-powerpoint' :
+			case 'application/vnd.ms-powerpoint' :
+			case 'application/vnd.openxmlformats-officedocument.presentationml.presentation' :
+			case 'application/vnd.openxmlformats-officedocument.presentationml.template' :
+			case 'application/vnd.openxmlformats-officedocument.presentationml.slideshow' :
+			case 'application/vnd.ms-powerpoint.addin.macroEnabled.12' :
+			case 'application/vnd.ms-powerpoint.presentation.macroEnabled.12 ' :
+			case 'application/vnd.ms-powerpoint.template.macroEnabled.12' :
+			case 'application/vnd.ms-powerpoint.slideshow.macroEnabled.12' :
+				$oApp = 'PowerPoint';
+				break;
+			
+			default:
+				$oApp = 'Word';
+		}
+		$result = $discoveryParsed->xpath(sprintf('/wopi-discovery/net-zone/app[@name=\'%s\']/action', $oApp));
+		
 		if ($result && count($result) > 0) {
+			$url = (string)$result[0]['urlsrc'];
+			$urlsrc = substr($url, 0, strpos($url, '<'));
 			return [
-				'urlsrc' => (string)$result[0]['urlsrc'],
+				'urlsrc' => $urlsrc,
 				'action' => (string)$result[0]['name'],
 			];
 		}

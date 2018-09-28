@@ -5,16 +5,16 @@ script('richdocuments', 'admin');
 ?>
 <div class="section" id="richdocuments">
 	<h2>
-		<?php p($l->t('Collabora Online')) ?>
+		<?php p($l->t('Office Online')) ?>
 		<a target="_blank" rel="noreferrer" class="icon-info"
 			title="<?php p($l->t('Open documentation'));?>"
-			href="https://github.com/nextcloud/richdocuments/wiki"></a>
+			href="https://wopi.readthedocs.io/en/latest/overview.html"></a>
 	</h2>
 	
 	<br/>
-	<label for="wopi_url"><?php p($l->t('Collabora Online server')) ?></label>
+	<label for="wopi_url"><?php p($l->t('Office Online server')) ?></label>
 	<input type="text" name="wopi_url" id="wopi_url" value="<?php p($_['wopi_url'])?>" style="width: 300px; display: block;">
-	<em><?php p($l->t('URL (and port) of the Collabora Online server that provides the editing functionality as a WOPI client.')) ?></em>
+	<em><?php p($l->t('URL (and port) of the Office Online server that provides the editing functionality as a WOPI client.')) ?></em>
 	<br/><button type="button" id="wopi_apply"><?php p($l->t('Apply')) ?></button>
 	<span id="documents-admin-msg" class="msg"></span>
 	<br/>
@@ -47,6 +47,6 @@ script('richdocuments', 'admin');
 	<div id="enable-canonical-webroot-section" class="indent <?php if ($_['canonical_webroot'] == '') p('hidden') ?>" >
 		<input type="text" id="canonical-webroot" name="canonical-webroot-name" value="<?php p($_['canonical_webroot']) ?>">
 		<br/>
-		<p class="rd-settings-documentation"><em><?php p($l->t('Canonical webroot, in case there are multiple, for Collabora to use. Provide the one with least restrictions. Eg: Use non-shibbolized webroot if this instance is accessed by both shibbolized and non-shibbolized webroots. You can ignore this setting if only one webroot is used to access this instance.')) ?></em></p>
+		<p class="rd-settings-documentation"><em><?php p($l->t('Canonical webroot, in case there are multiple, for Office to use. Provide the one with least restrictions. Eg: Use non-shibbolized webroot if this instance is accessed by both shibbolized and non-shibbolized webroots. You can ignore this setting if only one webroot is used to access this instance.')) ?></em></p>
 	</div>
 </div>

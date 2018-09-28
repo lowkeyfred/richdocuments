@@ -1,29 +1,21 @@
 <?xml version="1.0"?>
 <info>
 	<id>richdocuments</id>
-	<name>Collabora Online</name>
+	<name>Office Online Server</name>
 	<summary>Edit office documents directly in your browser.</summary>
-	<description>This application can connect to a Collabora Online server (WOPI Client). Nextcloud is the WOPI Host. Please read the documentation to learn more about that.</description>
+	<description>This application can connect to a Office Online server (WOPI Client), based on Collabora Online. Nextcloud is the WOPI Host. Please read the documentation to learn more about that.</description>
 	<version>2.1.3</version>
 	<licence>agpl</licence>
-	<author>Collabora Productivity based on work of Frank Karlitschek, Victor Dubiniuk</author>
+	<author>Frederich based on Collabora Productivity, Frank Karlitschek, Victor Dubiniuk</author>
 	<types>
 		<filesystem/>
 		<dav/>
 		<prevent_group_restriction/>
 	</types>
-	<documentation>
-		<user>https://nextcloud.com/collaboraonline/</user>
-		<admin>https://nextcloud.com/collaboraonline/</admin>
-	</documentation>
+
 	<category>office</category>
 	<category>integration</category>
-    <website>https://collaboraoffice.com/</website>
-	<bugs>https://github.com/nextcloud/richdocuments/issues</bugs>
-	<repository type="git">https://github.com/nextcloud/richdocuments.git</repository>
-	<screenshot>https://nextcloud.com/wp-content/themes/next/assets/img/features/collabora-document.png</screenshot>
-	<screenshot>https://nextcloud.com/wp-content/themes/next/assets/img/features/collabora-presentation.png</screenshot>
-	<screenshot>https://nextcloud.com/wp-content/themes/next/assets/img/features/collabora-spreadsheet.png</screenshot>
+    <website>http://www.scupi.cn</website>
 	<dependencies>
 		<nextcloud min-version="12" max-version="14" />
 	</dependencies>
